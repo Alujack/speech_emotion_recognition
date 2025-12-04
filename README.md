@@ -81,6 +81,24 @@ speech_emotion_recognition/
 └── README.md           # This file
 ```
 
+## Repository Setup
+
+This backend is designed to be a **standalone repository**, separate from the frontend.
+
+### Recommended Structure:
+```
+/your-projects/
+├── speech_emotion_recognition_backend/  (this repo)
+└── speech_emotion_recognition_frontend/ (Next.js repo)
+```
+
+If you need to move this to a separate location:
+```bash
+# From parent directory
+mv speech_emotion_recognition speech_emotion_recognition_backend
+cd speech_emotion_recognition_backend
+```
+
 ## Development
 
 ### Adding New Endpoints
@@ -96,15 +114,15 @@ async def analyze_audio(file: UploadFile):
 
 ### CORS Configuration
 
-The API is configured to accept requests from `http://localhost:3000` (Next.js default).
-To add more origins, modify the `allow_origins` list in `main.py`:
+The API is configured to accept requests from `http://localhost:3000` (Next.js default) and `http://localhost:3001`.
+
+**For production**, modify the `allow_origins` list in `main.py` to include your frontend domain:
 
 ```python
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://yourdomain.com"],
-    # ...
-)
+allow_origins=[
+    "http://localhost:3000",
+    "https://your-frontend-domain.com",  # Add your production URL
+]
 ```
 
 ## Integration with Frontend
@@ -123,6 +141,36 @@ const data = await response.json();
 3. Add data preprocessing pipeline
 4. Implement authentication (if needed)
 5. Add database support for storing results
+
+## Deployment
+
+### Option 1: Docker (Recommended)
+Create a `Dockerfile`:
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### Option 2: Traditional Hosting
+Deploy to services like:
+- **Railway**: Easy Python deployment with auto-detection
+- **Render**: Free tier with auto-deploy from git
+- **Heroku**: Classic PaaS platform
+- **DigitalOcean App Platform**: Container-based deployment
+- **AWS EC2/Lambda**: For more control
+
+### Environment Variables
+For production, use environment variables for configuration:
+```python
+import os
+from fastapi.middleware.cors import CORSMiddleware
+
+origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+```
 
 ## Contributing
 
