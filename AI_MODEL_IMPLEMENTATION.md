@@ -1,4 +1,5 @@
 # AI Model Implementation Guide
+
 ## Speech Emotion Recognition with Wav2Vec2
 
 This guide explains how to implement a real AI model for speech emotion recognition using Wav2Vec2, achieving high accuracy (targeting 99%+).
@@ -12,6 +13,7 @@ This guide explains how to implement a real AI model for speech emotion recognit
 ## 🔬 Why Wav2Vec2?
 
 Wav2Vec2 is a powerful pre-trained model by Facebook AI that:
+
 - Learns representations from raw audio waveforms
 - Pre-trained on 960 hours of speech data
 - Achieves state-of-the-art results on speech tasks
@@ -39,6 +41,7 @@ soundfile>=0.12.0
 ```
 
 Install:
+
 ```bash
 pip install torch torchaudio transformers librosa numpy soundfile
 ```
@@ -50,11 +53,13 @@ pip install torch torchaudio transformers librosa numpy soundfile
 Use existing fine-tuned models from HuggingFace:
 
 1. **ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition**
+
    - Trained on multiple emotion datasets
    - Supports 7 emotions: angry, disgust, fear, happy, neutral, sad, surprise
    - Good accuracy (~85-90%)
 
 2. **superb/wav2vec2-base-superb-er**
+
    - SUPERB benchmark model
    - Emotion recognition task
    - High quality, well-tested
@@ -66,6 +71,7 @@ Use existing fine-tuned models from HuggingFace:
 **Option B: Train Your Own Model (For 99%+ Accuracy)**
 
 Use datasets:
+
 - **RAVDESS**: Acted emotions, clean audio
 - **CREMA-D**: 7,442 clips, 6 emotions
 - **TESS**: Toronto Emotional Speech Set
@@ -89,19 +95,19 @@ class EmotionRecognitionModel:
     def __init__(self, model_name: str = "ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition"):
         """
         Initialize the emotion recognition model
-        
+
         Args:
             model_name: HuggingFace model identifier
         """
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
-        
+
         # Load processor and model
         self.processor = Wav2Vec2Processor.from_pretrained(model_name)
         self.model = Wav2Vec2ForSequenceClassification.from_pretrained(model_name)
         self.model.to(self.device)
         self.model.eval()
-        
+
         # Emotion labels (adjust based on your model)
         self.emotion_labels = {
             0: "angry",
@@ -112,7 +118,7 @@ class EmotionRecognitionModel:
             5: "sad",
             6: "surprise"
         }
-        
+
         # Map to our API emotion names
         self.emotion_mapping = {
             "angry": "angry",
@@ -123,45 +129,45 @@ class EmotionRecognitionModel:
             "sad": "sad",
             "surprise": "surprised"
         }
-    
+
     def preprocess_audio(self, audio_path: str, target_sr: int = 16000) -> np.ndarray:
         """
         Load and preprocess audio file
-        
+
         Args:
             audio_path: Path to audio file
             target_sr: Target sample rate
-            
+
         Returns:
             Preprocessed audio array
         """
         # Load audio file
         audio, sr = librosa.load(audio_path, sr=target_sr, mono=True)
-        
+
         # Normalize audio
         audio = librosa.util.normalize(audio)
-        
+
         return audio
-    
+
     def extract_features(self, audio: np.ndarray, sr: int = 16000) -> Dict[str, float]:
         """
         Extract audio features for metadata
-        
+
         Args:
             audio: Audio waveform
             sr: Sample rate
-            
+
         Returns:
             Dictionary of audio features
         """
         features = {}
-        
+
         # Duration
         features['duration'] = len(audio) / sr
-        
+
         # Sample rate
         features['sample_rate'] = float(sr)
-        
+
         # Pitch (F0)
         pitches, magnitudes = librosa.piptrack(y=audio, sr=sr)
         pitch_values = []
@@ -170,45 +176,45 @@ class EmotionRecognitionModel:
             pitch = pitches[index, t]
             if pitch > 0:
                 pitch_values.append(pitch)
-        
+
         if pitch_values:
             features['pitch_mean'] = float(np.mean(pitch_values))
             features['pitch_std'] = float(np.std(pitch_values))
         else:
             features['pitch_mean'] = 0.0
             features['pitch_std'] = 0.0
-        
+
         # Energy/RMS
         rms = librosa.feature.rms(y=audio)[0]
         features['energy_mean'] = float(np.mean(rms))
         features['energy_std'] = float(np.std(rms))
-        
+
         # Tempo
         tempo, _ = librosa.beat.beat_track(y=audio, sr=sr)
         features['tempo'] = float(tempo)
-        
+
         # Spectral centroid
         spectral_centroids = librosa.feature.spectral_centroid(y=audio, sr=sr)[0]
         features['spectral_centroid'] = float(np.mean(spectral_centroids))
-        
+
         return features
-    
+
     def predict_emotion(self, audio_path: str) -> Dict:
         """
         Predict emotion from audio file
-        
+
         Args:
             audio_path: Path to audio file
-            
+
         Returns:
             Dictionary with emotion predictions and features
         """
         # Preprocess audio
         audio = self.preprocess_audio(audio_path)
-        
+
         # Extract features for metadata
         audio_features = self.extract_features(audio)
-        
+
         # Prepare input for model
         inputs = self.processor(
             audio,
@@ -216,36 +222,36 @@ class EmotionRecognitionModel:
             return_tensors="pt",
             padding=True
         )
-        
+
         # Move to device
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
-        
+
         # Get predictions
         with torch.no_grad():
             outputs = self.model(**inputs)
             logits = outputs.logits
             probabilities = torch.nn.functional.softmax(logits, dim=-1)
-        
+
         # Get probabilities for all emotions
         probs = probabilities[0].cpu().numpy()
-        
+
         # Create emotion scores
         emotion_scores = []
         for idx, prob in enumerate(probs):
             emotion_name = self.emotion_labels.get(idx, f"emotion_{idx}")
             mapped_emotion = self.emotion_mapping.get(emotion_name, emotion_name)
-            
+
             emotion_scores.append({
                 "emotion": mapped_emotion,
                 "score": float(prob * 100),  # Convert to percentage
             })
-        
+
         # Sort by score
         emotion_scores.sort(key=lambda x: x['score'], reverse=True)
-        
+
         # Get dominant emotion
         dominant = emotion_scores[0]
-        
+
         return {
             "dominant_emotion": dominant["emotion"],
             "confidence": dominant["score"],
@@ -349,25 +355,25 @@ async def analyze_audio(file: UploadFile = File(...)):
             status_code=400,
             detail=f"Invalid file type. Supported: {', '.join(allowed_extensions)}"
         )
-    
+
     # Save uploaded file temporarily
     temp_file = None
     try:
         # Create temporary file
         suffix = os.path.splitext(file.filename)[1]
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-        
+
         # Write uploaded content
         content = await file.read()
         temp_file.write(content)
         temp_file.close()
-        
+
         # Get model
         model = get_model()
-        
+
         # Predict emotion
         prediction = model.predict_emotion(temp_file.name)
-        
+
         # Format emotion scores with metadata
         emotion_scores = []
         for score in prediction["emotion_scores"]:
@@ -377,7 +383,7 @@ async def analyze_audio(file: UploadFile = File(...)):
                 "color": "#6b7280",
                 "emoji": "😐"
             })
-            
+
             emotion_scores.append(EmotionScore(
                 emotion=emotion,
                 label=emotion_info["label"],
@@ -385,7 +391,7 @@ async def analyze_audio(file: UploadFile = File(...)):
                 color=emotion_info["color"],
                 emoji=emotion_info["emoji"]
             ))
-        
+
         result = AnalysisResult(
             success=True,
             filename=file.filename,
@@ -395,12 +401,12 @@ async def analyze_audio(file: UploadFile = File(...)):
             emotion_scores=emotion_scores,
             audio_features=prediction["audio_features"]
         )
-        
+
         return result
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error analyzing audio: {str(e)}")
-    
+
     finally:
         # Clean up temporary file
         if temp_file and os.path.exists(temp_file.name):
@@ -429,7 +435,7 @@ def prepare_dataset():
         'CREMA-D': 'path/to/cremad',
         'TESS': 'path/to/tess',
     }
-    
+
     # Load and label all audio files
     data = []
     for dataset_name, path in datasets.items():
@@ -442,12 +448,12 @@ def prepare_dataset():
                         'emotion': emotion,
                         'dataset': dataset_name
                     })
-    
+
     df = pd.DataFrame(data)
-    
+
     # Split dataset
     train_df, test_df = train_test_split(df, test_size=0.2, stratify=df['emotion'])
-    
+
     return train_df, test_df
 ```
 
@@ -468,9 +474,9 @@ def train_emotion_model():
         "facebook/wav2vec2-base",
         num_labels=7,  # 7 emotions
     )
-    
+
     processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base")
-    
+
     # Training arguments
     training_args = TrainingArguments(
         output_dir="./emotion_model",
@@ -486,7 +492,7 @@ def train_emotion_model():
         load_best_model_at_end=True,
         metric_for_best_model="accuracy",
     )
-    
+
     # Create trainer
     trainer = Trainer(
         model=model,
@@ -495,10 +501,10 @@ def train_emotion_model():
         eval_dataset=eval_dataset,
         compute_metrics=compute_metrics,
     )
-    
+
     # Train
     trainer.train()
-    
+
     # Save model
     model.save_pretrained("./final_emotion_model")
     processor.save_pretrained("./final_emotion_model")
@@ -520,11 +526,11 @@ def augment_audio(audio, sr):
         pitch_shift,
         time_shift,
     ]
-    
+
     augmented = []
     for aug_func in augmentations:
         augmented.append(aug_func(audio, sr))
-    
+
     return augmented
 
 def add_noise(audio, sr, noise_factor=0.005):
@@ -565,21 +571,21 @@ import matplotlib.pyplot as plt
 def evaluate_model(model, test_loader):
     predictions = []
     labels = []
-    
+
     for batch in test_loader:
         with torch.no_grad():
             outputs = model(**batch)
             preds = torch.argmax(outputs.logits, dim=-1)
             predictions.extend(preds.cpu().numpy())
             labels.extend(batch['labels'].cpu().numpy())
-    
+
     # Calculate metrics
     accuracy = accuracy_score(labels, predictions)
     f1 = f1_score(labels, predictions, average='weighted')
-    
+
     print(f"Accuracy: {accuracy * 100:.2f}%")
     print(f"F1 Score: {f1:.4f}")
-    
+
     # Confusion matrix
     cm = confusion_matrix(labels, predictions)
     plt.figure(figsize=(10, 8))
@@ -627,12 +633,15 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ## 🔧 Troubleshooting
 
 **Issue**: Low accuracy
+
 - **Solution**: More training data, better preprocessing, data augmentation
 
 **Issue**: Slow inference
+
 - **Solution**: Use quantization, ONNX, or smaller model variant
 
 **Issue**: Memory errors
+
 - **Solution**: Reduce batch size, use gradient checkpointing
 
 ## 📚 Resources
@@ -645,6 +654,7 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ## 🎓 Citation
 
 If using Wav2Vec2:
+
 ```bibtex
 @article{baevski2020wav2vec,
   title={wav2vec 2.0: A framework for self-supervised learning of speech representations},
@@ -666,4 +676,3 @@ If using Wav2Vec2:
 ---
 
 **Note**: Achieving exactly 99.99% accuracy is extremely challenging and may not be realistic for all datasets and scenarios. State-of-the-art models typically achieve 85-95% accuracy on standard benchmarks. The implementation above will get you very high accuracy with proper training and data.
-

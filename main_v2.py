@@ -15,7 +15,7 @@ import tempfile
 # Try to import AI model (will use static mode if not available)
 USE_AI_MODEL = False
 try:
-    from model import get_model
+    from model_simple import get_model
     USE_AI_MODEL = os.getenv("USE_AI_MODEL", "false").lower() == "true"
     if USE_AI_MODEL:
         print("🤖 AI MODE: Using Wav2Vec2 for real emotion recognition")
@@ -24,7 +24,7 @@ except ImportError:
 
 app = FastAPI(
     title="Speech Emotion Recognition API",
-    description="API for analyzing emotions from speech audio" + 
+    description="API for analyzing emotions from speech audio" +
                 (" using Wav2Vec2 AI model" if USE_AI_MODEL else " (demo mode with static results)"),
     version="2.0.0"
 )
@@ -79,10 +79,10 @@ def generate_static_emotion_analysis(filename: str) -> Dict:
     Returns realistic-looking emotion recognition results
     """
     emotions = list(EMOTIONS.keys())
-    
+
     # Pick a dominant emotion
     dominant = random.choice(emotions)
-    
+
     # Generate scores with the dominant emotion having highest score
     scores = {}
     for emotion in emotions:
@@ -91,14 +91,14 @@ def generate_static_emotion_analysis(filename: str) -> Dict:
         else:
             score = random.uniform(1.0, 15.0)   # Others: 1-15%
         scores[emotion] = score
-    
+
     # Normalize scores to sum to 100
     total = sum(scores.values())
     scores = {k: (v / total) * 100 for k, v in scores.items()}
-    
+
     # Sort emotions by score
     sorted_emotions = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-    
+
     # Create emotion score list
     emotion_scores = []
     for emotion, score in sorted_emotions:
@@ -106,7 +106,7 @@ def generate_static_emotion_analysis(filename: str) -> Dict:
             "emotion": emotion,
             "score": round(score, 2),
         })
-    
+
     # Generate audio features (simulated)
     audio_features = {
         "duration": round(random.uniform(1.0, 10.0), 2),
@@ -118,7 +118,7 @@ def generate_static_emotion_analysis(filename: str) -> Dict:
         "tempo": round(random.uniform(60.0, 180.0), 2),
         "spectral_centroid": round(random.uniform(1000.0, 3000.0), 2),
     }
-    
+
     return {
         "dominant_emotion": dominant,
         "confidence": round(scores[dominant], 2),
@@ -185,7 +185,7 @@ async def get_emotions():
 async def analyze_audio(file: UploadFile = File(...)):
     """
     Analyze audio file and return emotion recognition results
-    
+
     - In AI mode: Uses Wav2Vec2 model for real emotion recognition
     - In Static mode: Returns realistic demo results
     """
@@ -196,21 +196,23 @@ async def analyze_audio(file: UploadFile = File(...)):
             status_code=400,
             detail=f"Invalid file type. Supported: {', '.join(allowed_extensions)}"
         )
-    
+
     # Read and validate file content
     try:
         content = await file.read()
         if len(content) == 0:
             raise HTTPException(status_code=400, detail="Empty file uploaded")
-        
+
         # Check file size (max 10MB)
         if len(content) > 10 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="File too large (max 10MB)")
+            raise HTTPException(
+                status_code=400, detail="File too large (max 10MB)")
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error reading file: {str(e)}")
-    
+        raise HTTPException(
+            status_code=400, detail=f"Error reading file: {str(e)}")
+
     # Process based on mode
     if USE_AI_MODEL:
         # AI MODE: Use real model
@@ -218,14 +220,15 @@ async def analyze_audio(file: UploadFile = File(...)):
         try:
             # Save uploaded file temporarily
             suffix = os.path.splitext(file.filename)[1]
-            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+            temp_file = tempfile.NamedTemporaryFile(
+                delete=False, suffix=suffix)
             temp_file.write(content)
             temp_file.close()
-            
+
             # Get model and predict
             model = get_model()
             prediction = model.predict_emotion(temp_file.name)
-            
+
             # Format emotion scores with metadata
             emotion_scores = []
             for score in prediction["emotion_scores"]:
@@ -235,7 +238,7 @@ async def analyze_audio(file: UploadFile = File(...)):
                     "color": "#6b7280",
                     "emoji": "😐"
                 })
-                
+
                 emotion_scores.append(EmotionScore(
                     emotion=emotion,
                     label=emotion_info["label"],
@@ -243,7 +246,7 @@ async def analyze_audio(file: UploadFile = File(...)):
                     color=emotion_info["color"],
                     emoji=emotion_info["emoji"]
                 ))
-            
+
             result = AnalysisResult(
                 success=True,
                 filename=file.filename,
@@ -254,9 +257,9 @@ async def analyze_audio(file: UploadFile = File(...)):
                 audio_features=prediction["audio_features"],
                 mode="ai"
             )
-            
+
             return result
-            
+
         except Exception as e:
             raise HTTPException(
                 status_code=500,
@@ -266,17 +269,17 @@ async def analyze_audio(file: UploadFile = File(...)):
             # Clean up temporary file
             if temp_file and os.path.exists(temp_file.name):
                 os.unlink(temp_file.name)
-    
+
     else:
         # STATIC MODE: Generate demo results
         prediction = generate_static_emotion_analysis(file.filename)
-        
+
         # Format emotion scores with metadata
         emotion_scores = []
         for score in prediction["emotion_scores"]:
             emotion = score["emotion"]
             emotion_info = EMOTIONS[emotion]
-            
+
             emotion_scores.append(EmotionScore(
                 emotion=emotion,
                 label=emotion_info["label"],
@@ -284,7 +287,7 @@ async def analyze_audio(file: UploadFile = File(...)):
                 color=emotion_info["color"],
                 emoji=emotion_info["emoji"]
             ))
-        
+
         result = AnalysisResult(
             success=True,
             filename=file.filename,
@@ -295,7 +298,7 @@ async def analyze_audio(file: UploadFile = File(...)):
             audio_features=prediction["audio_features"],
             mode="static"
         )
-        
+
         return result
 
 
@@ -306,13 +309,13 @@ async def demo_analysis():
     Always returns static results regardless of mode
     """
     prediction = generate_static_emotion_analysis("demo_audio.wav")
-    
+
     # Format emotion scores
     emotion_scores = []
     for score in prediction["emotion_scores"]:
         emotion = score["emotion"]
         emotion_info = EMOTIONS[emotion]
-        
+
         emotion_scores.append(EmotionScore(
             emotion=emotion,
             label=emotion_info["label"],
@@ -320,7 +323,7 @@ async def demo_analysis():
             color=emotion_info["color"],
             emoji=emotion_info["emoji"]
         ))
-    
+
     result = AnalysisResult(
         success=True,
         filename="demo_audio.wav",
@@ -331,6 +334,5 @@ async def demo_analysis():
         audio_features=prediction["audio_features"],
         mode="demo"
     )
-    
-    return result
 
+    return result
