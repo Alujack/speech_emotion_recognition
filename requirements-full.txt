@@ -1,0 +1,30 @@
+# Full Requirements - For Training Your Own Model
+# Use this for complete functionality including model training
+
+# FastAPI Backend
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.18
+
+# Core AI/ML Dependencies
+torch>=2.0.0
+transformers>=4.30.0
+numpy>=1.24.0
+soundfile>=0.12.0
+scipy>=1.8.0
+
+# Training Dependencies
+datasets>=2.0.0
+evaluate>=0.4.0
+scikit-learn>=1.2.0
+tqdm>=4.65.0
+pandas>=1.5.0
+
+# Optional but Recommended
+accelerate>=0.20.0  # Faster training
+pyarrow>=10.0.0    # For faster dataset loading
+
+# For downloading datasets
+requests>=2.28.0
+gdown>=4.7.0       # For Google Drive downloads
+

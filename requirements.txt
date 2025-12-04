@@ -3,15 +3,18 @@ fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 python-multipart>=0.0.18
 
-# AI/ML Dependencies for Wav2Vec2 Model
-# Uncomment these lines when ready to use the AI model
-# torch>=2.0.0
-# torchaudio>=2.0.0
-# transformers>=4.30.0
-# librosa>=0.10.0
-# numpy>=1.24.0
-# soundfile>=0.12.0
+# Core AI/ML Dependencies for Wav2Vec2 Model
+torch>=2.0.0
+transformers>=4.30.0
+numpy>=1.24.0
+soundfile>=0.12.0
+scipy>=1.8.0
 
-# Optional: For better performance
-# accelerate>=0.20.0  # Faster model loading
-# sentencepiece>=0.1.99  # For some tokenizers
+# Training Dependencies
+datasets>=2.0.0
+evaluate>=0.4.0
+scikit-learn>=1.2.0
+tqdm>=4.65.0
+
+# Optional but Recommended
+accelerate>=0.20.0  # Faster training and inference
