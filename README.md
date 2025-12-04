@@ -1,6 +1,6 @@
 # Speech Emotion Recognition - Backend API
 
-FastAPI backend service for Speech Emotion Recognition system.
+FastAPI backend service for Speech Emotion Recognition system with static emotion analysis results.
 
 > **Note:** This is a separate repository from the frontend. The frontend Next.js application is maintained in a different repository.
 
@@ -8,8 +8,11 @@ FastAPI backend service for Speech Emotion Recognition system.
 
 - RESTful API built with FastAPI
 - CORS enabled for Next.js frontend integration
+- Audio file upload endpoint
+- Static emotion recognition results (for demonstration)
+- Comprehensive emotion analysis with confidence scores
+- Audio feature extraction (simulated)
 - Health check endpoint
-- Emotion classification endpoints (ready to integrate with ML models)
 
 ## Prerequisites
 
@@ -65,82 +68,115 @@ The API will be available at:
 
 ### Health Check
 
-- **GET** `/health` - Returns API health status
+- **GET** `/health` - Returns API health status with timestamp
 
 ### Emotions
 
-- **GET** `/api/emotions` - Returns list of supported emotions
+- **GET** `/api/emotions` - Returns list of supported emotions with metadata (label, color, emoji)
+
+### Analyze Audio
+
+- **POST** `/api/analyze` - Upload audio file and get emotion analysis
+  - Accepts: WAV, MP3, OGG, WebM, M4A files
+  - Max size: 10MB
+  - Returns: Emotion scores, dominant emotion, confidence, audio features
+
+### Demo Analysis
+
+- **GET** `/api/analyze/demo` - Get a demo analysis without uploading a file
+
+## Response Format
+
+The `/api/analyze` endpoint returns:
+
+```json
+{
+  "success": true,
+  "filename": "audio.wav",
+  "timestamp": "2025-12-04T10:30:00",
+  "dominant_emotion": "happy",
+  "confidence": 65.42,
+  "emotion_scores": [
+    {
+      "emotion": "happy",
+      "label": "Happy",
+      "score": 65.42,
+      "color": "#22c55e",
+      "emoji": "😊"
+    },
+    ...
+  ],
+  "audio_features": {
+    "duration": 5.2,
+    "sample_rate": 22050,
+    "pitch_mean": 180.5,
+    "pitch_std": 25.3,
+    "energy_mean": 0.15,
+    "energy_std": 0.03,
+    "tempo": 120.0,
+    "spectral_centroid": 2000.0
+  }
+}
+```
+
+## Supported Emotions
+
+- Happy 😊
+- Sad 😢
+- Angry 😠
+- Neutral 😐
+- Fearful 😨
+- Surprised 😮
+- Disgusted 🤢
 
 ## Project Structure
 
 ```
 speech_emotion_recognition/
-├── main.py              # FastAPI application entry point
+├── main.py              # FastAPI application with all endpoints
 ├── requirements.txt     # Python dependencies
 ├── .gitignore          # Git ignore file
 └── README.md           # This file
 ```
 
-## Repository Setup
+## CORS Configuration
 
-This backend is designed to be a **standalone repository**, separate from the frontend.
+The API is configured to accept requests from `http://localhost:3000` (Next.js default), `http://localhost:3001`, and all origins (for development).
 
-### Recommended Structure:
-```
-/your-projects/
-├── speech_emotion_recognition_backend/  (this repo)
-└── speech_emotion_recognition_frontend/ (Next.js repo)
-```
-
-If you need to move this to a separate location:
-```bash
-# From parent directory
-mv speech_emotion_recognition speech_emotion_recognition_backend
-cd speech_emotion_recognition_backend
-```
-
-## Development
-
-### Adding New Endpoints
-
-Edit `main.py` to add new routes:
-
-```python
-@app.post("/api/analyze")
-async def analyze_audio(file: UploadFile):
-    # Your audio processing logic here
-    return {"emotion": "happy", "confidence": 0.95}
-```
-
-### CORS Configuration
-
-The API is configured to accept requests from `http://localhost:3000` (Next.js default) and `http://localhost:3001`.
-
-**For production**, modify the `allow_origins` list in `main.py` to include your frontend domain:
+**For production**, modify the `allow_origins` list in `main.py` to include only your frontend domain:
 
 ```python
 allow_origins=[
-    "http://localhost:3000",
-    "https://your-frontend-domain.com",  # Add your production URL
+    "https://your-frontend-domain.com",
 ]
 ```
 
 ## Integration with Frontend
 
-The Next.js frontend (separate repository) can make API calls to this backend:
+The Next.js frontend (separate repository) makes API calls to this backend:
 
 ```typescript
-const response = await fetch("http://localhost:8000/api/emotions");
+const formData = new FormData();
+formData.append('file', audioFile);
+
+const response = await fetch("http://localhost:8000/api/analyze", {
+  method: "POST",
+  body: formData,
+});
 const data = await response.json();
 ```
 
-## Next Steps
+## Current Implementation
 
-1. Implement audio file upload endpoint
-2. Integrate ML model for emotion recognition
-3. Add data preprocessing pipeline
-4. Implement authentication (if needed)
-5. Add database support for storing results
+This backend currently returns **static/random emotion analysis results** for demonstration purposes. The results are generated to simulate realistic emotion recognition output.
+
+### To Implement Real AI Model:
+
+1. Install ML libraries: `librosa`, `tensorflow`/`pytorch`, `numpy`
+2. Load pre-trained emotion recognition model
+3. Replace `generate_static_emotion_analysis()` function with real analysis
+4. Extract actual audio features from uploaded files
+5. Run inference through the ML model
 
 ## Deployment
 
@@ -171,6 +207,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 ```
+
+## Testing
+
+1. Start the server
+2. Visit http://localhost:8000/docs
+3. Try the `/api/analyze/demo` endpoint
+4. Or upload an audio file via `/api/analyze`
 
 ## Contributing
 
